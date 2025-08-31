@@ -911,24 +911,36 @@
         }
 
         function setupUserInterface() {
-            const isAdmin = currentUser.role === 'Manager' || currentUser.role === 'Owner';
-            const storeSelect = document.getElementById('storeSelect');
-            const adminControls = document.getElementById('adminControls');
-            
-            if (isAdmin) {
-                adminControls.style.display = 'block';
-                storeSelect.disabled = false;
-                addTestButton(); // Add connection test button for managers
-            } else {
-                adminControls.style.display = 'none';
-                const userStore = currentUser.stores[0];
-                storeSelect.value = userStore;
-                storeSelect.disabled = true;
-                selectedStore = userStore;
-                updateStoreIndicator();
-                setupEmployeeDropdown();
+    const isAdmin = currentUser.role === 'Manager' || currentUser.role === 'Owner';
+    const storeSelect = document.getElementById('storeSelect');
+    const adminControls = document.getElementById('adminControls');
+    
+    if (isAdmin) {
+        adminControls.style.display = 'block';
+        storeSelect.disabled = false;
+        addTestButton(); // Add connection test button for managers
+    } else {
+        adminControls.style.display = 'none';
+        const userStore = currentUser.stores[0];
+        storeSelect.value = userStore;
+        storeSelect.disabled = true;
+        selectedStore = userStore;
+        updateStoreIndicator();
+        setupEmployeeDropdown();
+        
+        // IMPORTANT FIX: Enable submit button for employees
+        document.getElementById('submitBtn').disabled = false;
+        
+        // Auto-trigger employee selection change to enable all features
+        setTimeout(() => {
+            const employeeSelect = document.getElementById('employee');
+            if (employeeSelect.value) {
+                updateRecordsList();
+                updateMonthlyTotal();
             }
-        }
+        }, 500);
+    }
+}
 
         function updateStoreIndicator() {
             const indicator = document.getElementById('storeIndicator');
@@ -942,39 +954,43 @@
         }
 
         function setupEmployeeDropdown() {
-            const employeeSelect = document.getElementById('employee');
-            employeeSelect.innerHTML = '<option value="">-- Choose Employee --</option>';
+    const employeeSelect = document.getElementById('employee');
+    employeeSelect.innerHTML = '<option value="">-- Choose Employee --</option>';
+    
+    if (!selectedStore) return;
+    
+    const isAdmin = currentUser.role === 'Manager' || currentUser.role === 'Owner';
+    const adminMode = document.getElementById('adminMode')?.checked || false;
+    
+    if (isAdmin && adminMode) {
+        STORES[selectedStore].employees.forEach(name => {
+            const option = document.createElement('option');
+            option.value = name;
+            option.textContent = name;
+            employeeSelect.appendChild(option);
+        });
+    } else {
+        const allowedEmployees = isAdmin ? 
+            STORES[selectedStore].employees : 
+            [currentUser.name];
+        
+        allowedEmployees.forEach(name => {
+            const option = document.createElement('option');
+            option.value = name;
+            option.textContent = name;
+            employeeSelect.appendChild(option);
+        });
+        
+        // IMPORTANT FIX: Auto-select employee for non-admin users
+        if (!isAdmin || !adminMode) {
+            employeeSelect.value = currentUser.name;
+            employeeSelect.disabled = !isAdmin;
             
-            if (!selectedStore) return;
-            
-            const isAdmin = currentUser.role === 'Manager' || currentUser.role === 'Owner';
-            const adminMode = document.getElementById('adminMode')?.checked || false;
-            
-            if (isAdmin && adminMode) {
-                STORES[selectedStore].employees.forEach(name => {
-                    const option = document.createElement('option');
-                    option.value = name;
-                    option.textContent = name;
-                    employeeSelect.appendChild(option);
-                });
-            } else {
-                const allowedEmployees = isAdmin ? 
-                    STORES[selectedStore].employees : 
-                    [currentUser.name];
-                
-                allowedEmployees.forEach(name => {
-                    const option = document.createElement('option');
-                    option.value = name;
-                    option.textContent = name;
-                    employeeSelect.appendChild(option);
-                });
-                
-                if (!isAdmin || !adminMode) {
-                    employeeSelect.value = currentUser.name;
-                    employeeSelect.disabled = !isAdmin;
-                }
-            }
+            // Trigger the change event to enable submit button
+            employeeSelect.dispatchEvent(new Event('change'));
         }
+    }
+}
 
         function toggleAdminMode() {
             setupEmployeeDropdown();
